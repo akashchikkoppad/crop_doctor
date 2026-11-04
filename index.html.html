@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CropDoctor — AI-Based Vegetable Disease Detection</title>
+<meta name="description" content="Upload a photo of any vegetable or crop leaf. The AI identifies the crop and disease by itself and replies in Kannada and English." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Kannada:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#060b08; --panel:#0a120e; --panel2:#0d1f16; --line:#1c3b2e;
+    --green:#39ff8f; --green-bright:#5dffa5; --teal:#22d3ee;
+    --amber:#f5b942; --red:#ff6b5c;
+    --text:#eafff1; --muted:#8fb5a3; --muted2:#5c8873;
+    --dark-text:#04140c;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'Inter','Noto Sans Kannada',sans-serif; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .display{font-family:'Space Grotesk','Noto Sans Kannada',sans-serif;}
+  .kn{font-family:'Noto Sans Kannada','Inter',sans-serif; line-height:1.75;}
+  .en{font-size:12px; color:var(--muted2); margin-top:2px; line-height:1.5;}
+  .crop-card{padding:22px 8px !important; text-align:center;}
+  .crop-card small{font-size:12px; color:var(--muted2);}
+  .err-box{padding:24px; border:1px solid #3b2416; background:#1f140d; border-radius:8px; font-size:14px; color:#f1d3b0;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  a{color:inherit; text-decoration:none;}
+  .wrap{max-width:1152px; margin:0 auto; padding:0 24px;}
+  .btn{
+    display:inline-flex; align-items:center; gap:8px; cursor:pointer;
+    border:none; font-family:inherit; font-size:15px; font-weight:600;
+    padding:12px 24px; border-radius:8px; transition:background .15s, border-color .15s, color .15s, opacity .15s;
+  }
+  .btn-primary{background:var(--green); color:var(--dark-text);}
+  .btn-primary:hover{background:var(--green-bright);}
+  .btn-outline{background:transparent; border:1px solid #26483a; color:#c3ddd0;}
+  .btn-outline:hover{border-color:var(--green); color:var(--green);}
+  .btn:disabled{opacity:.3; cursor:not-allowed;}
+  svg{display:block;}
+
+  /* ---------- NAV ---------- */
+  header{
+    position:sticky; top:0; z-index:20;
+    background:rgba(6,11,8,.85); backdrop-filter:blur(8px);
+    border-bottom:1px solid #132a20;
+  }
+  header .wrap{
+    display:flex; align-items:center; justify-content:space-between;
+    padding-top:16px; padding-bottom:16px;
+  }
+  .brand{display:flex; align-items:center; gap:8px; font-weight:700; font-size:18px;}
+  .brand svg{color:var(--green); width:20px; height:20px;}
+  nav.links{display:flex; align-items:center; gap:32px; font-size:14px; color:var(--muted);}
+  nav.links a:hover{color:var(--green);}
+  @media (max-width:700px){ nav.links{display:none;} }
+
+  /* ---------- HERO ---------- */
+  .hero{position:relative; overflow:hidden; border-bottom:1px solid #132a20;}
+  .hero::before{
+    content:""; position:absolute; inset:0; pointer-events:none; opacity:.15;
+    background:
+      radial-gradient(circle at 20% 20%, var(--green) 0, transparent 35%),
+      radial-gradient(circle at 80% 60%, var(--teal) 0, transparent 40%);
+  }
+  .hero-inner{position:relative; padding:96px 24px;}
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:8px;
+    font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; letter-spacing:.15em;
+    color:var(--muted2); border:1px solid var(--line); border-radius:999px; padding:6px 14px; margin-bottom:24px;
+  }
+  .eyebrow svg{width:12px; height:12px;}
+  h1.hero-title{
+    font-size:56px; font-weight:700; line-height:1.05; max-width:640px;
+  }
+  @media (max-width:700px){ h1.hero-title{font-size:38px;} }
+  .hero-title .accent{color:var(--green);}
+  .hero-sub{margin-top:24px; font-size:18px; color:var(--muted); max-width:560px; line-height:1.6;}
+  .hero-actions{margin-top:32px; display:flex; flex-wrap:wrap; gap:16px;}
+
+  /* ---------- SECTION HEADERS ---------- */
+  section{padding:80px 24px;}
+  .section-alt{background:#050908; border-top:1px solid #132a20; border-bottom:1px solid #132a20;}
+  .sec-label{font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; letter-spacing:.15em; color:var(--muted2); margin-bottom:8px;}
+  .sec-title{font-size:32px; font-weight:600; margin-bottom:40px;}
+
+  /* ---------- UPLOAD PANEL ---------- */
+  .upload-grid{display:grid; grid-template-columns:1fr 1fr; gap:24px;}
+  @media (max-width:800px){ .upload-grid{grid-template-columns:1fr;} }
+  .dropzone{
+    position:relative; aspect-ratio:1/1; border-radius:10px; border:2px dashed var(--line);
+    background:var(--panel); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    overflow:hidden; text-align:center; transition:border-color .15s, background .15s;
+  }
+  .dropzone.drag{border-color:var(--green); background:var(--panel2);}
+  .dropzone img{width:100%; height:100%; object-fit:cover;}
+  .dz-placeholder{display:flex; flex-direction:column; align-items:center; gap:12px; padding:0 24px;}
+  .dz-placeholder svg{width:32px; height:32px; color:#3f6a56;}
+  .dz-placeholder .t1{font-size:14px; color:var(--muted);}
+  .dz-placeholder .t2{font-family:'JetBrains Mono',monospace; font-size:10px; color:#3f6a56; text-transform:uppercase; letter-spacing:.15em;}
+  .scan-overlay{position:absolute; inset:0; background:rgba(0,0,0,.4); display:none;}
+  .scan-overlay.active{display:block;}
+  .scan-line{
+    position:absolute; left:0; right:0; height:2px; background:var(--green);
+    box-shadow:0 0 12px 2px rgba(57,255,143,.8); top:0; transition:top .2s linear;
+  }
+  .scan-grid{
+    position:absolute; inset:0;
+    background:repeating-linear-gradient(0deg, rgba(57,255,143,.06) 0px, rgba(57,255,143,.06) 1px, transparent 1px, transparent 3px);
+  }
+  .upload-actions{margin-top:16px; display:flex; gap:12px;}
+  .upload-actions .btn-primary{flex:1; justify-content:center;}
+
+  .result-placeholder{
+    height:100%; min-height:280px; border-radius:10px; border:1px solid var(--line); background:var(--panel);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:0 32px;
+  }
+  .result-placeholder svg{width:28px; height:28px; color:#3f6a56; margin-bottom:12px;}
+  .result-placeholder p{font-size:14px; color:var(--muted2);}
+
+  .diag-card{border:1px solid var(--line); background:#0a120e; border-radius:8px; overflow:hidden;}
+  .diag-head{
+    padding:12px 20px; display:flex; align-items:center; justify-content:between; gap:12px;
+    border-bottom:1px solid var(--line); background:var(--panel2);
+  }
+  .diag-head.severe{background:#1f140d; border-color:#3b2416;}
+  .diag-head-left{display:flex; align-items:center; gap:8px; flex:1;}
+  .diag-head-left svg{width:16px; height:16px; color:var(--green);}
+  .diag-head.severe .diag-head-left svg{color:var(--amber);}
+  .diag-head .label{font-family:'JetBrains Mono',monospace; font-size:11px; text-transform:uppercase; letter-spacing:.15em; color:var(--muted2);}
+  .diag-head .conf{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted2);}
+  .diag-body{padding:20px; display:flex; flex-direction:column; gap:16px;}
+  .diag-field .k{font-family:'JetBrains Mono',monospace; font-size:10px; text-transform:uppercase; letter-spacing:.15em; color:var(--muted2); margin-bottom:4px;}
+  .diag-field .v{font-size:14px; color:#c3ddd0;}
+  .diag-title{font-size:20px; font-weight:600; color:var(--text);}
+  .diag-2col{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  .sev-severe{color:var(--red); font-weight:600;}
+  .sev-moderate{color:var(--amber); font-weight:600;}
+  .sev-none{color:var(--green); font-weight:600;}
+  .diag-solution{padding-top:12px; border-top:1px solid var(--line);}
+  .diag-solution .v{color:var(--text);}
+
+  /* ---------- HOW IT WORKS ---------- */
+  .steps-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:24px;}
+  @media (max-width:800px){ .steps-grid{grid-template-columns:1fr;} }
+  .step-card{position:relative; border:1px solid var(--line); background:var(--panel); border-radius:10px; padding:24px;}
+  .step-card svg.icon{width:24px; height:24px; color:var(--green); margin-bottom:16px;}
+  .step-card .st{font-size:18px; font-weight:600; margin-bottom:8px;}
+  .step-card .sb{font-size:14px; color:var(--muted); line-height:1.6;}
+
+  /* ---------- CROPS ---------- */
+  .crop-grid{display:grid; grid-template-columns:repeat(6,1fr); gap:16px;}
+  @media (max-width:800px){ .crop-grid{grid-template-columns:repeat(3,1fr);} }
+  @media (max-width:480px){ .crop-grid{grid-template-columns:repeat(2,1fr);} }
+  .crop-card{
+    border:1px solid var(--line); background:var(--panel); border-radius:10px; padding:32px 0;
+    display:flex; flex-direction:column; align-items:center; gap:12px; transition:border-color .15s;
+  }
+  .crop-card:hover{border-color:var(--green);}
+  .crop-card svg{width:24px; height:24px; color:var(--green);}
+  .crop-card span{font-size:14px; color:#c3ddd0;}
+
+  /* ---------- ABOUT ---------- */
+  .about-grid{display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:start;}
+  @media (max-width:800px){ .about-grid{grid-template-columns:1fr; gap:32px;} }
+  .about-grid p{color:var(--muted); line-height:1.7; margin-bottom:16px;}
+  .stack-box{border:1px solid var(--line); background:var(--panel); border-radius:10px; padding:24px; font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--muted);}
+  .stack-box .comment{color:var(--muted2); margin-bottom:8px;}
+  .stack-box div{display:flex; justify-content:space-between; padding:4px 0;}
+  .stack-box .val{color:var(--green);}
+
+  /* ---------- TEAM ---------- */
+  .team-title{display:flex; align-items:center; gap:12px;}
+  .team-title svg{width:24px; height:24px; color:var(--green);}
+  .team-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:16px;}
+  @media (max-width:800px){ .team-grid{grid-template-columns:repeat(2,1fr);} }
+  .team-card{border:1px solid var(--line); background:var(--panel); border-radius:10px; padding:20px;}
+  .team-card .name{font-size:14px; font-weight:500; margin-bottom:4px;}
+  .team-card .role{font-size:12px; color:var(--muted2);}
+
+  /* ---------- FOOTER ---------- */
+  footer{border-top:1px solid #132a20;}
+  footer .wrap{
+    display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16px;
+    padding-top:40px; padding-bottom:40px;
+  }
+  .footer-brand{display:flex; align-items:center; gap:8px;}
+  .footer-brand svg{width:16px; height:16px; color:var(--green);}
+  .footer-brand span.college{font-size:12px; color:var(--muted2); margin-left:8px;}
+  .footer-icons{display:flex; align-items:center; gap:20px; color:var(--muted);}
+  .footer-icons a svg{width:16px; height:16px;}
+  .footer-icons a:hover{color:var(--green);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
+      <span class="display">CropDoctor</span>
+    </div>
+    <nav class="links">
+      <a href="#upload">Diagnose</a>
+      <a href="#how">How it works</a>
+      <a href="#crops">Crops</a>
+      <a href="#about">About</a>
+    </nav>
+    <a href="#upload" class="btn btn-primary" style="padding:8px 18px; font-size:14px;">Try Now</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-inner wrap">
+    <div class="eyebrow">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      AI-based vegetable disease detection
+    </div>
+    <h1 class="hero-title display">Detect. Diagnose. <span class="accent">Treat.</span></h1>
+    <p class="hero-sub">Upload a photo of any vegetable or crop leaf. CropDoctor identifies the crop and the disease by itself, then explains the cause and treatment in Kannada (ಕನ್ನಡ) and English.</p>
+    <div class="hero-actions">
+      <a href="#upload" class="btn btn-primary">Try Now
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 18l6-6-6-6"/></svg>
+      </a>
+      <a href="#how" class="btn btn-outline">How it works</a>
+    </div>
+  </div>
+</section>
+
+<section id="upload">
+  <div class="wrap">
+    <div class="sec-label">01 — Diagnose</div>
+    <h2 class="sec-title display">Scan a leaf right now</h2>
+    <div class="upload-grid">
+      <div>
+        <div class="dropzone" id="dropzone">
+          <input type="file" accept="image/*" id="fileInput" style="display:none">
+          <div class="dz-placeholder" id="dzPlaceholder">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <div class="t1">Drag a leaf photo here, or tap to browse</div>
+            <div class="t2">JPG · PNG · up to 10MB</div>
+          </div>
+          <img id="previewImg" style="display:none">
+          <div class="scan-overlay" id="scanOverlay">
+            <div class="scan-line" id="scanLine"></div>
+            <div class="scan-grid"></div>
+          </div>
+        </div>
+        <div class="upload-actions">
+          <button class="btn btn-primary" id="analyzeBtn" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
+            <span id="analyzeLabel">Analyze Leaf</span>
+          </button>
+          <button class="btn btn-outline" id="clearBtn" style="display:none;">Clear</button>
+        </div>
+      </div>
+      <div id="resultArea">
+        <div class="result-placeholder">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg>
+          <p>Upload a photo and run analysis to see the diagnosis report here.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how" class="section-alt">
+  <div class="wrap">
+    <div class="sec-label">02 — Process</div>
+    <h2 class="sec-title display">How it works</h2>
+    <div class="steps-grid">
+      <div class="step-card">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <div class="st display">Upload</div>
+        <div class="sb">Snap or upload a photo of the affected vegetable leaf.</div>
+      </div>
+      <div class="step-card">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
+        <div class="st display">AI Analysis</div>
+        <div class="sb">A vision AI model recognises the crop on its own and scans the leaf for disease patterns.</div>
+      </div>
+      <div class="step-card">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 2v6l-6 10a2 2 0 0 0 2 3h14a2 2 0 0 0 2-3l-6-10V2"/><path d="M9 2h6"/></svg>
+        <div class="st display">Get Solution</div>
+        <div class="sb">Receive the crop, disease, cause and treatment in Kannada and English.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="crops">
+  <div class="wrap">
+    <div class="sec-label">03 — Coverage</div>
+    <h2 class="sec-title display">Supported vegetables &amp; crops</h2>
+    <div class="crop-grid" id="cropGrid"></div>
+  </div>
+</section>
+
+<section id="about" class="section-alt">
+  <div class="wrap">
+    <div class="sec-label">04 — About</div>
+    <h2 class="sec-title display">Under the hood</h2>
+    <div class="about-grid">
+      <div>
+        <p>CropDoctor uses a vision AI model that recognises any vegetable or crop from a leaf photo — no crop selection needed — and detects healthy or diseased conditions, so coverage is not limited to a fixed list.</p>
+        <p>Each prediction is paired with a curated disease database covering cause, severity, and recommended treatment, so the output is immediately actionable rather than just a label.</p>
+      </div>
+      <div class="stack-box">
+        <div class="comment"># tech stack</div>
+        <div><span>model</span><span class="val">Vision AI (Claude)</span></div>
+        <div><span>language</span><span class="val">Kannada + English</span></div>
+        <div><span>vision</span><span class="val">OpenCV</span></div>
+        <div><span>interface</span><span class="val">Flask / Streamlit</span></div>
+        <div><span>backend</span><span class="val">Netlify Function</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-label">05 — Team</div>
+    <h2 class="sec-title display team-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Project team
+    </h2>
+    <div class="team-grid">
+      <div class="team-card"><div class="name">Team Member</div><div class="role">Data & Preprocessing</div></div>
+      <div class="team-card"><div class="name">Team Member</div><div class="role">Model Training</div></div>
+      <div class="team-card"><div class="name">Team Member</div><div class="role">Web Interface</div></div>
+      <div class="team-card"><div class="name">Team Member</div><div class="role">Documentation</div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
+      <span class="display" style="font-weight:600;">CropDoctor</span>
+      <span class="college">SA College, Naregal · BCA Project</span>
+    </div>
+    <div class="footer-icons">
+      <a href="#" aria-label="GitHub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg></a>
+      <a href="#" aria-label="Email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const dzPlaceholder = document.getElementById('dzPlaceholder');
+  const previewImg = document.getElementById('previewImg');
+  const scanOverlay = document.getElementById('scanOverlay');
+  const scanLine = document.getElementById('scanLine');
+  const analyzeBtn = document.getElementById('analyzeBtn');
+  const analyzeLabel = document.getElementById('analyzeLabel');
+  const clearBtn = document.getElementById('clearBtn');
+  const resultArea = document.getElementById('resultArea');
+
+  let scanTimer = null;
+  let hasImage = false;
+
+  function resetResult(){
+    resultArea.innerHTML = `
+      <div class="result-placeholder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg>
+        <p>Upload a photo and run analysis to see the diagnosis report here.</p>
+      </div>`;
+  }
+
+  function handleFile(file){
+    if(!file || !file.type.startsWith('image/')) return;
+    const url = URL.createObjectURL(file);
+    previewImg.src = url;
+    previewImg.style.display = 'block';
+    dzPlaceholder.style.display = 'none';
+    hasImage = true;
+    analyzeBtn.disabled = false;
+    clearBtn.style.display = 'inline-flex';
+    scanOverlay.classList.remove('active');
+    resetResult();
+    analyzeLabel.textContent = 'Analyze Leaf';
+  }
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+  dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault(); dropzone.classList.remove('drag');
+    handleFile(e.dataTransfer.files[0]);
+  });
+
+  clearBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    previewImg.style.display = 'none';
+    previewImg.src = '';
+    dzPlaceholder.style.display = 'flex';
+    hasImage = false;
+    analyzeBtn.disabled = true;
+    clearBtn.style.display = 'none';
+    scanOverlay.classList.remove('active');
+    clearInterval(scanTimer);
+    resetResult();
+    analyzeLabel.textContent = 'Analyze Leaf';
+  });
+
+  const API_URL = '/.netlify/functions/analyze';
+  const CROPS = [
+['Tomato','ಟೊಮೆಟೊ'],['Potato','ಆಲೂಗಡ್ಡೆ'],['Chilli','ಮೆಣಸಿನಕಾಯಿ'],['Capsicum','ದೊಣ್ಣೆಮೆಣಸಿನಕಾಯಿ'],['Brinjal','ಬದನೆಕಾಯಿ'],['Cucumber','ಸೌತೆಕಾಯಿ'],['Okra','ಬೆಂಡೆಕಾಯಿ'],['Cabbage','ಎಲೆಕೋಸು'],['Cauliflower','ಹೂಕೋಸು'],['Onion','ಈರುಳ್ಳಿ'],['Garlic','ಬೆಳ್ಳುಳ್ಳಿ'],['Carrot','ಗಜ್ಜರಿ'],['Beetroot','ಬೀಟ್‌ರೂಟ್'],['Radish','ಮೂಲಂಗಿ'],['Bitter gourd','ಹಾಗಲಕಾಯಿ'],['Ridge gourd','ಹೀರೆಕಾಯಿ'],['Bottle gourd','ಸೋರೆಕಾಯಿ'],['Pumpkin','ಕುಂಬಳಕಾಯಿ'],['Drumstick','ನುಗ್ಗೆಕಾಯಿ'],['Beans','ಹುರಳಿಕಾಯಿ'],['Field bean','ಅವರೆಕಾಯಿ'],['Peas','ಬಟಾಣಿ'],['Spinach','ಪಾಲಕ್'],['Fenugreek','ಮೆಂತ್ಯ'],['Coriander','ಕೊತ್ತಂಬರಿ'],['Curry leaf','ಕರಿಬೇವು'],
+['Rice (Bhatta)','ಭತ್ತ'],['Wheat','ಗೋಧಿ'],['Maize','ಮೆಕ್ಕೆಜೋಳ'],['Jowar','ಜೋಳ'],['Bajra','ಸಜ್ಜೆ'],['Ragi','ರಾಗಿ'],['Foxtail millet','ನವಣೆ'],['Little millet','ಸಾಮೆ'],['Barley','ಬಾರ್ಲಿ'],
+['Chickpea (Kadale)','ಕಡಲೆ'],['Green gram (Hesaru kalu)','ಹೆಸರು ಕಾಳು'],['Black gram','ಉದ್ದು'],['Tur dal','ತೊಗರಿ'],['Horse gram','ಹುರುಳಿ'],['Cowpea','ಅಲಸಂದೆ'],['Soybean','ಸೋಯಾಬೀನ್'],
+['Groundnut','ಕಡಲೆಕಾಯಿ'],['Sunflower','ಸೂರ್ಯಕಾಂತಿ'],['Sesame','ಎಳ್ಳು'],['Safflower','ಕುಸುಬೆ'],['Niger','ಹುಚ್ಚೆಳ್ಳು'],['Castor','ಹರಳು'],['Mustard','ಸಾಸಿವೆ'],
+['Cotton (Hatti)','ಹತ್ತಿ'],['Sugarcane','ಕಬ್ಬು'],['Jute','ಸೆಣಬು'],['Tobacco','ತಂಬಾಕು'],['Coffee','ಕಾಫಿ'],['Tea','ಚಹಾ'],['Rubber','ರಬ್ಬರ್'],
+['Coconut','ತೆಂಗು'],['Arecanut','ಅಡಿಕೆ'],['Cashew','ಗೇರು'],['Black pepper','ಕಾಳುಮೆಣಸು'],['Cardamom','ಏಲಕ್ಕಿ'],['Turmeric','ಅರಿಶಿನ'],['Ginger','ಶುಂಠಿ'],['Sweet potato','ಸಿಹಿಗೆಣಸು'],['Tapioca','ಮರಗೆಣಸು'],
+['Banana','ಬಾಳೆ'],['Mango','ಮಾವು'],['Grapes','ದ್ರಾಕ್ಷಿ'],['Pomegranate','ದಾಳಿಂಬೆ'],['Papaya','ಪಪ್ಪಾಯಿ'],['Guava','ಸೀಬೆ'],['Sapota','ಚಿಕ್ಕು'],['Orange','ಕಿತ್ತಳೆ'],['Lemon','ನಿಂಬೆ'],['Watermelon','ಕಲ್ಲಂಗಡಿ'],['Muskmelon','ಖರ್ಬೂಜ'],['Jackfruit','ಹಲಸು'],['Pineapple','ಅನಾನಸ್'],['Apple','ಸೇಬು'],
+['Marigold','ಚೆಂಡು ಹೂ'],['Rose','ಗುಲಾಬಿ'],['Jasmine','ಮಲ್ಲಿಗೆ'],['and more','ಮತ್ತು ಇನ್ನಷ್ಟು']];
+  const LEAF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>';
+  document.getElementById('cropGrid').innerHTML = CROPS.map(c => `<div class="crop-card">${LEAF}<span class="kn">${c[1]}</span><small>${c[0]}</small></div>`).join('');
+
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const bi = (kn, en) => `<div class="kn">${esc(kn)}</div><div class="en">${esc(en)}</div>`;
+  const SEV = {None:'ಇಲ್ಲ', Moderate:'ಮಧ್ಯಮ', Severe:'ತೀವ್ರ'};
+
+  analyzeBtn.addEventListener('click', async () => {
+    if(!hasImage) return;
+    scanOverlay.classList.add('active');
+    analyzeBtn.disabled = true;
+    resetResult();
+    let p = 0;
+    clearInterval(scanTimer);
+    scanTimer = setInterval(() => { p = p >= 92 ? 4 : p + 6; scanLine.style.top = p + '%'; }, 220);
+    analyzeLabel.textContent = 'Analyzing… ವಿಶ್ಲೇಷಿಸಲಾಗುತ್ತಿದೆ…';
+    try{
+      const s = Math.min(1, 1024 / Math.max(previewImg.naturalWidth, previewImg.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(previewImg.naturalWidth * s); c.height = Math.round(previewImg.naturalHeight * s);
+      c.getContext('2d').drawImage(previewImg, 0, 0, c.width, c.height);
+      const image = c.toDataURL('image/jpeg', 0.85).split(',')[1];
+      const res = await fetch(API_URL, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({image, mediaType:'image/jpeg'})});
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      showResult(await res.json());
+    }catch(e){
+      resultArea.innerHTML = `<div class="err-box"><div class="kn">ವಿಶ್ಲೇಷಣೆ ವಿಫಲವಾಯಿತು. ಇಂಟರ್ನೆಟ್ ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.</div><div class="en">Analysis failed. Check your connection and the server setup, then try again. (${esc(e.message)})</div></div>`;
+    }finally{
+      clearInterval(scanTimer);
+      scanOverlay.classList.remove('active');
+      analyzeBtn.disabled = false;
+      analyzeLabel.textContent = 'Analyze Leaf';
+    }
+  });
+
+  function showResult(r){
+    if(!r.is_plant){
+      resultArea.innerHTML = `<div class="err-box"><div class="kn">${esc(r.note_kn || 'ಇದು ಸಸ್ಯದ ಎಲೆಯ ಚಿತ್ರವಲ್ಲ. ದಯವಿಟ್ಟು ಸ್ಪಷ್ಟವಾದ ಎಲೆಯ ಫೋಟೋ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ.')}</div><div class="en">${esc(r.note_en || 'This does not look like a plant leaf. Please upload a clear leaf photo.')}</div></div>`;
+      return;
+    }
+    const healthy = !!r.healthy;
+    const sev = healthy ? 'None' : (r.severity || 'Moderate');
+    const sevClass = sev === 'Severe' ? 'sev-severe' : sev === 'Moderate' ? 'sev-moderate' : 'sev-none';
+    resultArea.innerHTML = `
+      <div class="diag-card">
+        <div class="diag-head ${sev === 'Severe' ? 'severe' : ''}">
+          <div class="diag-head-left">
+            ${healthy
+              ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+              : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--amber)"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'}
+            <span class="label">ರೋಗ ವರದಿ · Diagnosis Report</span>
+          </div>
+          <span class="conf">${esc(r.confidence)}% confidence</span>
+        </div>
+        <div class="diag-body">
+          <div>
+            <div class="k">ಬೆಳೆ / ಸ್ಥಿತಿ · Crop / Condition</div>
+            <div class="diag-title kn">${esc(r.crop_kn)} — ${esc(r.disease_kn)}</div>
+            <div class="en">${esc(r.crop_en)} — ${esc(r.disease_en)}</div>
+          </div>
+          <div class="diag-2col">
+            <div class="diag-field"><div class="k">ಕಾರಣ · Cause</div><div class="v">${bi(r.cause_kn, r.cause_en)}</div></div>
+            <div class="diag-field"><div class="k">ತೀವ್ರತೆ · Severity</div><div class="v ${sevClass}"><span class="kn">${SEV[sev] || ''}</span> <span class="en" style="display:inline">(${esc(sev)})</span></div></div>
+          </div>
+          <div class="diag-field"><div class="k">ಲಕ್ಷಣಗಳು · Observed Symptoms</div><div class="v">${bi(r.symptoms_kn, r.symptoms_en)}</div></div>
+          <div class="diag-solution">
+            <div class="k">ಪರಿಹಾರ · Recommended Solution</div>
+            <div class="v">${bi(r.treatment_kn, r.treatment_en)}</div>
+          </div>
+        </div>
+      </div>`;
+  }
+</script>
+</body>
+</html>
